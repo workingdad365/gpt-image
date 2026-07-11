@@ -1,16 +1,32 @@
-# gpt-image
+# gpt-image / gpt-video
 
-Azure OpenAI 이미지 생성 API를 터미널에서 실행하는 CLI 도구다.
+Azure OpenAI 이미지 및 비디오 생성 API를 터미널에서 실행하는 CLI 도구다.
+
+- `gpt-image`: 이미지 생성
+- `gpt-video`: `sora-2` 비디오 생성, 작업 상태 확인 및 MP4 다운로드
 
 ## 요구 사항
 
-- Python 3.12 이상
+- Python 3.13 이상
 - uv
-- Azure OpenAI 이미지 생성 배포
+- Azure OpenAI 이미지 및 비디오 생성 권한
 
 ## 환경 변수 설정
 
-이 도구는 `.env` 파일을 읽지 않는다. 전역 설치된 `gpt-image` 명령은 실행 위치와 무관하게 동작해야 하므로, 설정값을 사용자 환경 변수나 시스템 환경 변수로 관리한다.
+`gpt-image`는 프로세스 환경변수를 사용한다. `gpt-video`는 실행 위치의 `.env`를 먼저 읽으며, 이미 설정된 프로세스 환경변수는 덮어쓰지 않는다.
+
+`.env` 예시:
+
+```dotenv
+AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_API_KEY
+AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_ENDPOINT
+OPENAI_API_VERSION=YOUR_OPENAI_API_VERSION
+DEPLOYMENT_NAME=YOUR_IMAGE_DEPLOYMENT_NAME
+```
+
+`OPENAI_API_VERSION`과 `DEPLOYMENT_NAME`은 `gpt-image`에서만 사용한다. `gpt-video`는 Azure OpenAI v1 API를 사용하므로 API 버전이 필요하지 않으며, 모델명은 환경변수와 무관하게 `sora-2`로 고정된다. Azure 리소스에도 배포 이름이 `sora-2`인 Sora 2 모델이 있어야 한다.
+
+전역 설치된 `gpt-image` 명령은 실행 위치와 무관하게 동작해야 하므로, 이미지 도구 설정값은 사용자 환경 변수나 시스템 환경 변수로 관리한다.
 
 PowerShell 예시:
 
@@ -73,9 +89,10 @@ uv tool update-shell
 
 ```powershell
 gpt-image
+gpt-video
 ```
 
-생성된 이미지는 명령을 실행한 현재 디렉터리의 `output/` 폴더에 저장된다.
+생성된 이미지와 비디오는 명령을 실행한 현재 디렉터리의 `output/` 폴더에 저장된다.
 
 ## 로컬 실행
 
@@ -83,5 +100,10 @@ gpt-image
 
 ```powershell
 uv run gpt-image
+uv run gpt-video
 ```
+
+비디오 생성은 비동기 작업으로 실행된다. `gpt-video`는 완료될 때까지 상태를 확인한 뒤 MP4 파일을 자동으로 다운로드한다.
+
+Sora 2 모델과 Videos API는 2026년 9월 24일 종료 예정이다.
 
