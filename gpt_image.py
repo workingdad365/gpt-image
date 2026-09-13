@@ -1,13 +1,21 @@
 import base64
 import os
+import re
 import sys
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
+from dotenv import load_dotenv
 from openai import AzureOpenAI
 from prompt_toolkit.shortcuts import prompt
+
+IMAGE_DEPLOYMENTS = (
+    "gpt-image-2.5-flare",
+    "gpt-image-2.5-sunburst",
+)
 
 
 def _required_env(name: str) -> str:
@@ -17,10 +25,25 @@ def _required_env(name: str) -> str:
     return value
 
 
+def _select_deployment() -> str:
+    print("사용할 모델을 선택하세요:")
+    for index, deployment in enumerate(IMAGE_DEPLOYMENTS, start=1):
+        print(f"  {index}. {deployment}")
+
+    choice = prompt("번호 선택 (Enter=1): ").strip() or "1"
+    if not choice.isdigit() or not 1 <= int(choice) <= len(IMAGE_DEPLOYMENTS):
+        raise SystemExit(
+            f"1~{len(IMAGE_DEPLOYMENTS)} 중 번호를 입력하거나 Enter만 누름."
+        )
+    return IMAGE_DEPLOYMENTS[int(choice) - 1]
+
+
 def _build_client() -> tuple[AzureOpenAI, str]:
+    load_dotenv(dotenv_path=Path.cwd() / ".env")
+
     endpoint = _required_env("AZURE_OPENAI_ENDPOINT")
     api_version = _required_env("OPENAI_API_VERSION")
-    deployment = _required_env("DEPLOYMENT_NAME")
+    deployment = _select_deployment()
     api_key = _required_env("AZURE_OPENAI_API_KEY")
 
     client = AzureOpenAI(
@@ -29,6 +52,51 @@ def _build_client() -> tuple[AzureOpenAI, str]:
         api_key=api_key,
     )
     return client, deployment
+
+
+def _validate_custom_size(value: str) -> str:
+    match = re.fullmatch(r"(\d+)[xX](\d+)", value.strip())
+    if not match:
+        raise SystemExit("해상도는 WIDTHxHEIGHT 형식으로 입력함.")
+
+    width, height = (int(dimension) for dimension in match.groups())
+    pixels = width * height
+    if width % 16 or height % 16:
+        raise SystemExit("가로와 세로는 모두 16px 배수여야 함.")
+    if max(width, height) > 3840:
+        raise SystemExit("가장 긴 변은 3840px 이하여야 함.")
+    if max(width, height) > min(width, height) * 3:
+        raise SystemExit("가로세로비는 1:3~3:1 범위여야 함.")
+    if not 655_360 <= pixels <= 8_294_400:
+        raise SystemExit("총 픽셀 수는 655,360~8,294,400 범위여야 함.")
+    return f"{width}x{height}"
+
+
+def _select_image_size() -> str:
+    size_options = (
+        ("auto", "Auto"),
+        ("1024x1024", "1024x1024"),
+        ("1024x1536", "1024x1536"),
+        ("1536x1024", "1536x1024"),
+        ("2048x2048", "2048x2048 (2K 정사각형)"),
+        ("2560x1440", "2560x1440 (QHD 가로)"),
+        ("1440x2560", "1440x2560 (QHD 세로)"),
+        ("3840x2160", "3840x2160 (4K 가로, 실험적)"),
+        ("2160x3840", "2160x3840 (4K 세로, 실험적)"),
+    )
+
+    print("해상도를 선택하세요:")
+    for index, (_, label) in enumerate(size_options, start=1):
+        print(f"  {index}. {label}")
+    custom_choice = len(size_options) + 1
+    print(f"  {custom_choice}. 직접 입력")
+
+    choice = prompt("번호 선택 (Enter=1): ").strip() or "1"
+    if choice == str(custom_choice):
+        return _validate_custom_size(prompt("해상도 입력 (WIDTHxHEIGHT): "))
+    if not choice.isdigit() or not 1 <= int(choice) <= len(size_options):
+        raise SystemExit(f"1~{custom_choice} 중 번호를 입력하거나 Enter만 누름.")
+    return size_options[int(choice) - 1][0]
 
 
 def _generate_with_progress(
@@ -56,7 +124,7 @@ def _generate_with_progress(
             prompt=prompt_text,
             n=1,
             quality="high",
-            size=size,
+            size=cast(Any, size),
         )
     finally:
         stop.set()
@@ -70,23 +138,7 @@ def main() -> None:
     if not user_prompt:
         raise SystemExit("프롬프트가 비어 있음.")
 
-    print("화면비를 선택하세요:")
-    print("  1. Auto")
-    print("  2. 1024x1024")
-    print("  3. 1024x1536")
-    print("  4. 1536x1024")
-    ratio_map = {
-        "1": "auto",
-        "2": "1024x1024",
-        "3": "1024x1536",
-        "4": "1536x1024",
-    }
-    ratio_choice = prompt("번호 선택 (Enter=1): ").strip()
-    if not ratio_choice:
-        ratio_choice = "1"
-    if ratio_choice not in ratio_map:
-        raise SystemExit("1~4 중 번호를 입력하거나 Enter만 누름.")
-    image_size = ratio_map[ratio_choice]
+    image_size = _select_image_size()
 
     t_start = time.perf_counter()
     result = _generate_with_progress(client, deployment, user_prompt, image_size)

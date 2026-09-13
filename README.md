@@ -13,7 +13,7 @@ Azure OpenAI 이미지 및 비디오 생성 API를 터미널에서 실행하는 
 
 ## 환경 변수 설정
 
-`gpt-image`는 프로세스 환경변수를 사용한다. `gpt-video`는 실행 위치의 `.env`를 먼저 읽으며, 이미 설정된 프로세스 환경변수는 덮어쓰지 않는다.
+`gpt-image`와 `gpt-video`는 실행 위치의 `.env`를 읽으며, 이미 설정된 프로세스 환경변수는 덮어쓰지 않는다.
 
 `.env` 예시:
 
@@ -21,12 +21,13 @@ Azure OpenAI 이미지 및 비디오 생성 API를 터미널에서 실행하는 
 AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_API_KEY
 AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_ENDPOINT
 OPENAI_API_VERSION=YOUR_OPENAI_API_VERSION
-DEPLOYMENT_NAME=YOUR_IMAGE_DEPLOYMENT_NAME
 ```
 
-`OPENAI_API_VERSION`과 `DEPLOYMENT_NAME`은 `gpt-image`에서만 사용한다. `gpt-video`는 Azure OpenAI v1 API를 사용하므로 API 버전이 필요하지 않으며, 모델명은 환경변수와 무관하게 `sora-2`로 고정된다. Azure 리소스에도 배포 이름이 `sora-2`인 Sora 2 모델이 있어야 한다.
+`OPENAI_API_VERSION`은 `gpt-image`에서만 사용한다. 이미지 배포는 `gpt-image-2.5-flare`와 `gpt-image-2.5-sunburst`로 고정되며, 실행 시 번호로 선택한다. Flare가 1번이자 기본값이다.
 
-전역 설치된 `gpt-image` 명령은 실행 위치와 무관하게 동작해야 하므로, 이미지 도구 설정값은 사용자 환경 변수나 시스템 환경 변수로 관리한다.
+`gpt-video`는 Azure OpenAI v1 API를 사용하므로 API 버전이 필요하지 않으며, 모델명은 환경변수와 무관하게 `sora-2`로 고정된다. Azure 리소스에도 배포 이름이 `sora-2`인 Sora 2 모델이 있어야 한다.
+
+전역 설치된 명령은 현재 디렉터리의 `.env`를 읽는다. 다른 디렉터리에서도 같은 설정을 사용하려면 사용자 환경 변수나 시스템 환경 변수로 관리한다.
 
 PowerShell 예시:
 
@@ -34,7 +35,6 @@ PowerShell 예시:
 [Environment]::SetEnvironmentVariable("AZURE_OPENAI_API_KEY", "YOUR_AZURE_OPENAI_API_KEY", "User")
 [Environment]::SetEnvironmentVariable("AZURE_OPENAI_ENDPOINT", "YOUR_AZURE_OPENAI_ENDPOINT", "User")
 [Environment]::SetEnvironmentVariable("OPENAI_API_VERSION", "YOUR_OPENAI_API_VERSION", "User")
-[Environment]::SetEnvironmentVariable("DEPLOYMENT_NAME", "YOUR_DEPLOYMENT_NAME", "User")
 ```
 
 환경 변수를 등록한 뒤에는 새 PowerShell을 열어야 반영된다.
@@ -46,7 +46,6 @@ cat <<'EOF' >> ~/.bashrc
 export AZURE_OPENAI_API_KEY="YOUR_AZURE_OPENAI_API_KEY"
 export AZURE_OPENAI_ENDPOINT="YOUR_AZURE_OPENAI_ENDPOINT"
 export OPENAI_API_VERSION="YOUR_OPENAI_API_VERSION"
-export DEPLOYMENT_NAME="YOUR_DEPLOYMENT_NAME"
 EOF
 ```
 
@@ -62,8 +61,21 @@ source ~/.bashrc
 $env:AZURE_OPENAI_API_KEY = "YOUR_AZURE_OPENAI_API_KEY"
 $env:AZURE_OPENAI_ENDPOINT = "YOUR_AZURE_OPENAI_ENDPOINT"
 $env:OPENAI_API_VERSION = "YOUR_OPENAI_API_VERSION"
-$env:DEPLOYMENT_NAME = "YOUR_DEPLOYMENT_NAME"
 ```
+
+## 이미지 해상도
+
+GPT-Image-2.5 Sunburst와 Flare는 기존의 고정 해상도뿐 아니라 사용자 지정 해상도를 지원한다. CLI에서 2K 정사각형, QHD 가로/세로, 4K 가로/세로 프리셋을 선택하거나 직접 입력할 수 있다.
+
+사용자 지정 해상도에는 다음 제약이 적용된다.
+
+- 가로와 세로 모두 16px 배수
+- 가로세로비 1:3~3:1
+- 가장 긴 변 3840px 이하
+- 총 픽셀 수 655,360~8,294,400
+- 2560x1440 초과 해상도는 실험적
+
+자세한 사양은 [Microsoft Foundry 이미지 생성 모델 문서](https://learn.microsoft.com/azure/ai-foundry/openai/how-to/dall-e)를 참고한다.
 
 ## 전역 설치
 
