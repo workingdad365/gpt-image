@@ -125,6 +125,7 @@ def _generate_with_progress(
             n=1,
             quality="high",
             size=cast(Any, size),
+            moderation="low",
         )
     finally:
         stop.set()
